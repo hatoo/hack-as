@@ -1,6 +1,6 @@
 use clap::Parser;
 use std::{collections::HashMap, path::PathBuf};
-use tree_sitter::Node;
+use tree_sitter::{Node, Query, QueryCursor};
 
 #[derive(clap::Parser)]
 struct Opt {
@@ -16,6 +16,26 @@ fn main() {
     parser.set_language(tree_sitter_hack::language()).unwrap();
 
     let tree = parser.parse(&code, None).unwrap();
+
+    let mut has_error = false;
+    let query = Query::new(tree_sitter_hack::language(), "(ERROR) @error").unwrap();
+    let mut query_cursor = QueryCursor::new();
+    for m in query_cursor.matches(&query, tree.root_node(), code.as_bytes()) {
+        has_error = true;
+        let node = m.captures[0].node;
+        let start = node.start_position();
+        let end = node.end_position();
+        eprintln!(
+            "parse error: {}:{}:{}: {}",
+            start.row + 1,
+            start.column + 1,
+            end.column + 1,
+            node.utf8_text(&code.as_bytes()).unwrap()
+        );
+    }
+    if has_error {
+        std::process::exit(1);
+    }
 
     let mut table = label_table(tree.root_node(), &code);
 
