@@ -30,7 +30,7 @@ fn main() {
             start.row + 1,
             start.column + 1,
             end.column + 1,
-            node.utf8_text(&code.as_bytes()).unwrap()
+            node.utf8_text(code.as_bytes()).unwrap()
         );
     }
     if has_error {
@@ -91,7 +91,7 @@ fn label_table(root: Node, code: &str) -> HashMap<String, u16> {
                 let label = mnemonic
                     .child(1)
                     .unwrap()
-                    .utf8_text(&code.as_bytes())
+                    .utf8_text(code.as_bytes())
                     .unwrap()
                     .to_string();
                 assert!(table.insert(label, addr).is_none());
@@ -165,7 +165,7 @@ fn decode(root: Node, code: &str, table: &mut HashMap<String, u16>) -> Vec<u16> 
 
                     let mut dest_bits = 0;
 
-                    if let Some(dest) = find(inst.clone(), "dest", code) {
+                    if let Some(dest) = find(inst, "dest", code) {
                         dest_bits = match dest.utf8_text(code.as_bytes()).unwrap() {
                             "M" => 0b001,
                             "D" => 0b010,
@@ -178,7 +178,7 @@ fn decode(root: Node, code: &str, table: &mut HashMap<String, u16>) -> Vec<u16> 
                         };
                     }
 
-                    let comp = find(inst.clone(), "comp", code).unwrap();
+                    let comp = find(inst, "comp", code).unwrap();
                     assert_eq!(comp.kind(), "comp");
 
                     let comp_bits = match comp.utf8_text(code.as_bytes()).unwrap() {
@@ -214,7 +214,7 @@ fn decode(root: Node, code: &str, table: &mut HashMap<String, u16>) -> Vec<u16> 
                     };
 
                     let mut jump_bits = 0;
-                    if let Some(jump) = find(inst.clone(), "jump", code) {
+                    if let Some(jump) = find(inst, "jump", code) {
                         assert_eq!(jump.kind(), "jump");
                         jump_bits = match jump.utf8_text(code.as_bytes()).unwrap() {
                             "JGT" => 0b001,
