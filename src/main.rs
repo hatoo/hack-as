@@ -109,6 +109,15 @@ fn label_table(root: Node, code: &str) -> HashMap<String, u16> {
 }
 
 fn decode(root: Node, code: &str, table: &mut HashMap<String, u16>) -> Vec<u16> {
+    fn find<'tree>(node: Node<'tree>, kind: &str, code: &str) -> Option<Node<'tree>> {
+        let query = Query::new(tree_sitter_hack::language(), &format!("({}) @cap", kind)).unwrap();
+        let mut query_cursor = QueryCursor::new();
+        query_cursor
+            .matches(&query, node, code.as_bytes())
+            .next()
+            .map(|m| m.captures[0].node)
+    }
+
     let mut result = Vec::new();
 
     let mut walker = root.walk();
@@ -154,27 +163,22 @@ fn decode(root: Node, code: &str, table: &mut HashMap<String, u16>) -> Vec<u16> 
                 } else {
                     // cinst
 
-                    let mut i = 0;
-
                     let mut dest_bits = 0;
 
-                    if let Some(dest) = inst.child(i) {
-                        if dest.kind() == "dest" {
-                            dest_bits = match dest.utf8_text(code.as_bytes()).unwrap() {
-                                "M" => 0b001,
-                                "D" => 0b010,
-                                "MD" => 0b011,
-                                "A" => 0b100,
-                                "AM" => 0b101,
-                                "AD" => 0b110,
-                                "AMD" => 0b111,
-                                _ => unreachable!(),
-                            };
-                            i += 2;
-                        }
+                    if let Some(dest) = find(inst.clone(), "dest", code) {
+                        dest_bits = match dest.utf8_text(code.as_bytes()).unwrap() {
+                            "M" => 0b001,
+                            "D" => 0b010,
+                            "MD" => 0b011,
+                            "A" => 0b100,
+                            "AM" => 0b101,
+                            "AD" => 0b110,
+                            "AMD" => 0b111,
+                            _ => unreachable!(),
+                        };
                     }
 
-                    let comp = inst.child(i).unwrap(); // comp
+                    let comp = find(inst.clone(), "comp", code).unwrap();
                     assert_eq!(comp.kind(), "comp");
 
                     let comp_bits = match comp.utf8_text(code.as_bytes()).unwrap() {
@@ -208,10 +212,9 @@ fn decode(root: Node, code: &str, table: &mut HashMap<String, u16>) -> Vec<u16> 
                         "D|M" => 0b1010101,
                         _ => unreachable!(),
                     };
-                    i += 2;
 
                     let mut jump_bits = 0;
-                    if let Some(jump) = inst.child(i) {
+                    if let Some(jump) = find(inst.clone(), "jump", code) {
                         assert_eq!(jump.kind(), "jump");
                         jump_bits = match jump.utf8_text(code.as_bytes()).unwrap() {
                             "JGT" => 0b001,
@@ -223,9 +226,6 @@ fn decode(root: Node, code: &str, table: &mut HashMap<String, u16>) -> Vec<u16> 
                             "JMP" => 0b111,
                             _ => unreachable!(),
                         };
-                        i += 1;
-
-                        assert!(inst.child(i).is_none());
                     }
 
                     (0b111 << 13) | (comp_bits << 6) | (dest_bits << 3) | jump_bits
